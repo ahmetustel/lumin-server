@@ -1,49 +1,44 @@
-// src/reservations/reservations.service.ts
 import { Injectable } from '@nestjs/common';
-import * as admin from 'firebase-admin';
 import { Reservation } from './reservation.interface';
+import { FirestoreService } from '../firestore.service';
+import * as admin from 'firebase-admin';
 
 @Injectable()
 export class ReservationsService {
-  private db = admin.firestore();
+  private collection;
+
+  constructor(private firestoreService: FirestoreService) {
+    this.collection = this.firestoreService.getCollection('reservations');
+  }
 
   async findAll(limit = 5, lastDoc?: string): Promise<Reservation[]> {
-    let query = this.db.collection('reservations').orderBy('date').limit(limit);
+    let query: FirebaseFirestore.Query = this.collection
+      .orderBy('date')
+      .limit(limit);
+
     if (lastDoc) {
-      const lastSnapshot = await this.db
-        .collection('reservations')
-        .doc(lastDoc)
-        .get();
-      query = query.startAfter(lastSnapshot);
+      const snapshot = await this.collection.doc(lastDoc).get();
+      query = query.startAfter(snapshot);
     }
+
     const snapshot = await query.get();
     return snapshot.docs.map((doc) => doc.data() as Reservation);
   }
 
-  private readonly reservations: Reservation[] = [];
-
-  findOne(id: string): Reservation | undefined {
-    return this.reservations.find((res) => res.id === id);
+  async findOne(id: string): Promise<Reservation | null> {
+    const doc = await this.collection.doc(id).get();
+    return doc.exists ? (doc.data() as Reservation) : null;
   }
 
-  create(reservation: Reservation): Reservation {
-    this.reservations.push(reservation);
-    return reservation;
+  async create(reservation: Reservation): Promise<void> {
+    await this.collection.doc(reservation.id).set(reservation);
   }
 
-  update(id: string, updatedReservation: Reservation): Reservation | undefined {
-    const index = this.reservations.findIndex((res) => res.id === id);
-    if (index === -1) return undefined;
-    this.reservations[index] = updatedReservation;
-    return updatedReservation;
+  async update(id: string, reservation: Reservation): Promise<void> {
+    await this.collection.doc(id).update(reservation);
   }
 
-  remove(id: string): boolean {
-    const index = this.reservations.findIndex((res) => res.id === id);
-    if (index === -1) return false;
-    this.reservations.splice(index, 1);
-    return true;
+  async remove(id: string): Promise<void> {
+    await this.collection.doc(id).delete();
   }
-
-  // Other CRUD methods...
 }

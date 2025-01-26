@@ -1,87 +1,62 @@
 import * as admin from 'firebase-admin';
 import { faker } from '@faker-js/faker';
 
-console.log(faker.string.uuid()); // UUID oluşturur
-console.log(faker.number.int({ min: 1, max: 100 })); // Rastgele bir sayı
-console.log(faker.person.fullName()); // Tam isim oluşturur
-console.log(faker.helpers.replaceSymbols('FL###')); // Uçuş numara
+(async () => {
+  // Kendinize ait servis hesap JSON veya environment parametreleriyle initialize edin
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId: process.env.FIREBASE_PROJECT_ID,
+    });
+  }
 
-admin.initializeApp({
-  credential: admin.credential.applicationDefault(),
-});
+  const db = admin.firestore();
 
-const db = admin.firestore();
-
-type User = {
-  id: string;
-  username: string;
-  password: string;
-  role: 'admin' | 'staff';
-};
-
-type Customer = {
-  id: string;
-  name: string;
-  email: string;
-};
-
-type Reservation = {
-  id: string;
-  flightNumber: string;
-  date: Date;
-  customers: Customer[];
-};
-
-const generateUsers = async () => {
-  const users: User[] = [];
+  // 10 kullanıcı (1 admin, 9 staff)
+  const users = [];
   for (let i = 0; i < 10; i++) {
     users.push({
+      // id: faker.datatype.uuid(),
       id: faker.string.uuid(), // UUID oluşturma
       username: `user${i}`,
       password: faker.internet.password(),
       role: i === 0 ? 'admin' : 'staff',
     });
   }
-  const batch = db.batch();
-  users.forEach((user) => {
-    const ref = db.collection('users').doc(user.id);
-    batch.set(ref, user);
-  });
-  await batch.commit();
-  console.log('Users generated');
-};
 
-const generateReservations = async () => {
-  const reservations: Reservation[] = [];
+  // 1000 rezervasyon
+  const reservations = [];
   for (let i = 0; i < 1000; i++) {
-    const customers: Customer[] = Array.from(
-      { length: faker.number.int({ min: 1, max: 3 }) }, // Rastgele sayı
-      () => ({
-        id: faker.string.uuid(),
-        name: faker.person.fullName(), // Tam isim oluşturma
-        email: faker.internet.email(),
-      }),
-    );
+    const customerCount = faker.number.int({ min: 1, max: 3 });
+
+    const customers = Array.from({ length: customerCount }).map(() => ({
+      id: faker.string.uuid(),
+      name: faker.name.firstName() + ' ' + faker.name.lastName(),
+      email: faker.internet.email(),
+    }));
     reservations.push({
       id: faker.string.uuid(),
-      flightNumber: faker.helpers.replaceSymbols('FL###'), // Uçuş numarası formatı
+      flightNumber: `TK${faker.number.int({ min: 100, max: 999 })}`,
       date: faker.date.future(),
       customers,
     });
   }
+
+  // Batch yazma
   const batch = db.batch();
-  reservations.forEach((reservation) => {
-    const ref = db.collection('reservations').doc(reservation.id);
-    batch.set(ref, reservation);
+
+  users.forEach((user) => {
+    const ref = db.collection('users').doc(user.id);
+    batch.set(ref, user);
   });
+
+  reservations.forEach((resv) => {
+    const ref = db.collection('reservations').doc(resv.id);
+    batch.set(ref, resv);
+  });
+
   await batch.commit();
-  console.log('Reservations generated');
-};
 
-const run = async () => {
-  await generateUsers();
-  await generateReservations();
-  process.exit();
-};
-
-run();
+  console.log('Mock data oluşturma tamamlandı.');
+  process.exit(0);
+})();
