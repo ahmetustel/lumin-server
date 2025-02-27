@@ -7,22 +7,27 @@ import * as admin from 'firebase-admin';
 export class ReservationsService {
   private collection;
 
-  constructor(private firestoreService: FirestoreService) {
+  constructor(private readonly firestoreService: FirestoreService) {
     this.collection = this.firestoreService.getCollection('reservations');
   }
 
-  async findAll(limit = 5, lastDoc?: string): Promise<Reservation[]> {
-    let query: FirebaseFirestore.Query = this.collection
-      .orderBy('date')
-      .limit(limit);
+  async findAll() {
+    try {
+      const snapshot = await this.firestoreService
+        .getCollection('reservations')
+        .orderBy('date', 'desc')
+        .limit(50)
+        .get();
 
-    if (lastDoc) {
-      const snapshot = await this.collection.doc(lastDoc).get();
-      query = query.startAfter(snapshot);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date.toDate()
+      }));
+    } catch (error) {
+      console.error('Reservations fetch error:', error);
+      throw error;
     }
-
-    const snapshot = await query.get();
-    return snapshot.docs.map((doc) => doc.data() as Reservation);
   }
 
   async findOne(id: string): Promise<Reservation | null> {

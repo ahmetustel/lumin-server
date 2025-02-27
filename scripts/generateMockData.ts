@@ -1,12 +1,13 @@
 import * as admin from 'firebase-admin';
 import { faker } from '@faker-js/faker';
+import * as path from 'path';
 
 (async () => {
   // Kendinize ait servis hesap JSON veya environment parametreleriyle initialize edin
   if (!admin.apps.length) {
+    const serviceAccountPath = path.join(process.cwd(), 'serviceAccountKey.json');
     admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: process.env.FIREBASE_PROJECT_ID,
+      credential: admin.credential.cert(require(serviceAccountPath))
     });
   }
 
@@ -19,7 +20,7 @@ import { faker } from '@faker-js/faker';
       // id: faker.datatype.uuid(),
       id: faker.string.uuid(), // UUID oluşturma
       username: `user${i}`,
-      password: faker.internet.password(),
+      password: '123456', 
       role: i === 0 ? 'admin' : 'staff',
     });
   }
@@ -31,7 +32,7 @@ import { faker } from '@faker-js/faker';
 
     const customers = Array.from({ length: customerCount }).map(() => ({
       id: faker.string.uuid(),
-      name: faker.name.firstName() + ' ' + faker.name.lastName(),
+      name: faker.person.firstName() + ' ' + faker.person.lastName(),
       email: faker.internet.email(),
     }));
     reservations.push({
